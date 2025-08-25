@@ -1,0 +1,19 @@
+[package]
+name = "chat-tui"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "chat-tui"
+path = "src/main.rs"
+
+[dependencies]
+chat-core = { path = "../chat-core" }
+tokio = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+clap = { workspace = true }
