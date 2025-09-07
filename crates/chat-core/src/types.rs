@@ -30,7 +30,7 @@ pub struct DhtConfig {
 impl Default for DhtConfig {
     fn default() -> Self {
         // Using the public IP we retrieved: 49.43.242.2
-        let bootstrap_addr = "/ip4/49.43.242.2/tcp/4001"
+        let bootstrap_addr = "/ip4/49.43.242.2/tcp/4001/p2p/12D3KooWBhv1RbRv26TNXM9sd99J3HAKM5ww2dET3EEaRMQ9HQeE"
             .parse()
             .expect("Invalid bootstrap address");
         
