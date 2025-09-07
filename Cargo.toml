@@ -15,10 +15,14 @@ repository = "https://github.com/yourusername/p2p-chat"
 
 [workspace.dependencies]
 # Core libp2p dependencies
-libp2p = { version = "0.53", features = ["tcp", "mdns", "noise", "yamux", "gossipsub", "identify"] }
+libp2p = { version = "0.53", features = ["tcp", "kad", "noise", "yamux", "gossipsub", "identify", "request-response", "ping", "macros", "tokio"] }
 tokio = { version = "1.0", features = ["full"] }
 anyhow = "1.0"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 serde = { version = "1.0", features = ["derive"] }
 clap = { version = "4.0", features = ["derive"] }
+futures = "0.3"
+rand = "0.8"
+uuid = { version = "1.0", features = ["v4"] }
+serde_json = "1.0"

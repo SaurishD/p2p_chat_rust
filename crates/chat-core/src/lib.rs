@@ -15,6 +15,12 @@ pub fn init() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Initialize chat core with DHT networking
+pub async fn init_with_dht(config: NetworkConfig) -> anyhow::Result<(P2pNetwork, tokio::sync::mpsc::UnboundedReceiver<NetworkEvent>)> {
+    tracing::info!("Initializing chat core with DHT networking");
+    init_network_with_dht(config).await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
