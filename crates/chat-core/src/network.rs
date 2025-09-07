@@ -11,6 +11,8 @@ use libp2p::{
     swarm::{NetworkBehaviour, SwarmEvent},
     tcp, yamux, Multiaddr, PeerId, Swarm, Transport,
 };
+use std::fs;
+use std::path::Path;
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
@@ -25,6 +27,7 @@ use crate::{types::*, DhtConfig, NetworkEvent};
 pub struct NetworkConfig {
     pub listen_port: u16,
     pub dht_config: DhtConfig,
+    pub key_file: String,
 }
 
 impl Default for NetworkConfig {
@@ -32,6 +35,7 @@ impl Default for NetworkConfig {
         Self {
             listen_port: 0, // Let the OS choose
             dht_config: DhtConfig::default(),
+            key_file: "peer_key.dat".to_string(),
         }
     }
 }
@@ -85,10 +89,31 @@ pub struct P2pNetwork {
 }
 
 impl P2pNetwork {
+    /// Load or create a persistent keypair
+    fn load_or_create_keypair(key_file: &str) -> Result<libp2p::identity::Keypair> {
+        
+        if Path::new(key_file).exists() {
+            // Load existing keypair
+            let key_bytes = fs::read(key_file)?;
+            let keypair = libp2p::identity::Keypair::from_protobuf_encoding(&key_bytes)
+                .map_err(|e| anyhow::anyhow!("Failed to decode keypair: {}", e))?;
+            info!("Loaded existing keypair from {}", key_file);
+            Ok(keypair)
+        } else {
+            // Create new keypair and save it
+            let keypair = libp2p::identity::Keypair::generate_ed25519();
+            let key_bytes = keypair.to_protobuf_encoding()
+                .map_err(|e| anyhow::anyhow!("Failed to encode keypair: {}", e))?;
+            fs::write(key_file, &key_bytes)?;
+            info!("Created new keypair and saved to {}", key_file);
+            Ok(keypair)
+        }
+    }
+
     /// Create a new P2P network instance
     pub async fn new(config: NetworkConfig) -> Result<(Self, mpsc::UnboundedReceiver<NetworkEvent>)> {
-        // Create a random keypair
-        let local_key = libp2p::identity::Keypair::generate_ed25519();
+        // Load or create a persistent keypair
+        let local_key = Self::load_or_create_keypair(&config.key_file)?;
         let local_peer_id = PeerId::from(local_key.public());
         info!("Local peer id: {local_peer_id}");
 

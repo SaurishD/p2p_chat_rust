@@ -1,1 +1,39 @@
-/target
+# Rust build artifacts
+/target/
+**/*.rs.bk
+Cargo.lock
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# P2P Chat specific files
+# Peer keypair files - these contain private keys and should never be committed
+*.dat
+peer_key.dat
+custom_peer.dat
+
+# Log files
+*.log
+*.out
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Test artifacts
+test_*
+*_test.log

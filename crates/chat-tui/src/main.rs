@@ -21,6 +21,10 @@ struct Args {
     /// Bootstrap node address (optional, uses default if not provided)
     #[arg(short, long)]
     bootstrap: Option<String>,
+    
+    /// Path to the peer keypair file (default: peer_key.dat)
+    #[arg(short, long, default_value = "peer_key.dat")]
+    key_file: String,
 }
 
 #[tokio::main]
@@ -37,6 +41,7 @@ async fn main() -> Result<()> {
     // Create network configuration
     let mut config = NetworkConfig::default();
     config.listen_port = args.port;
+    config.key_file = args.key_file;
     
     // Override bootstrap node if provided
     if let Some(bootstrap_addr) = args.bootstrap {
