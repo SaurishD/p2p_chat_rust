@@ -2,36 +2,6 @@
 
 A decentralized peer-to-peer chat application built with Rust and libp2p, featuring DHT (Distributed Hash Table) for peer discovery instead of mDNS.
 
-## Features
-
-- 🌐 **DHT-Based Peer Discovery**: Uses Kademlia DHT for robust peer discovery across networks
-- 🔗 **Direct P2P Connections**: Establishes direct connections between peers after discovery
-- 💬 **Gossipsub Messaging**: Reliable message broadcasting using libp2p's gossipsub protocol
-- 🔐 **Cryptographic Security**: Built-in noise protocol for secure communications
-- 🎯 **Bootstrap Node Support**: Configurable bootstrap nodes for initial DHT participation
-- 📊 **Real-time Events**: Live peer discovery, connection, and messaging events
-- 🖥️ **Terminal UI**: Clean command-line interface for chat interaction
-
-## Architecture
-
-```
-┌─────────────────┐    DHT Discovery    ┌─────────────────┐
-│     Peer A      │◄──────────────────►│     Peer B      │
-│                 │                     │                 │
-│ ┌─────────────┐ │                     │ ┌─────────────┐ │
-│ │   Kademlia  │ │                     │ │   Kademlia  │ │
-│ │     DHT     │ │                     │ │     DHT     │ │
-│ └─────────────┘ │                     │ └─────────────┘ │
-│ ┌─────────────┐ │    Direct Messages  │ ┌─────────────┐ │
-│ │  Gossipsub  │ │◄──────────────────►│ │  Gossipsub  │ │
-│ │ Messaging   │ │                     │ │ Messaging   │ │
-│ └─────────────┘ │                     │ └─────────────┘ │
-└─────────────────┘                     └─────────────────┘
-        ▲                                         ▲
-        │                                         │
-        └──────────► Bootstrap Node ◄─────────────┘
-                   (49.43.242.2:4001)
-```
 
 ## Quick Start
 
@@ -128,16 +98,15 @@ p2p-chat/
 ├── crates/
 │   ├── chat-core/          # Core P2P networking library
 │   │   ├── src/
-│   │   │   ├── lib.rs      # Library exports
+│   │   │   ├── lib.rs      # Library exports and client interface
 │   │   │   ├── network.rs  # DHT and networking implementation
 │   │   │   └── types.rs    # Core data structures
 │   │   └── Cargo.toml
-│   ├── chat-tui/           # Terminal UI application
-│   │   ├── src/
-│   │   │   ├── main.rs     # Application entry point
-│   │   │   └── app.rs      # Application state management
-│   │   └── Cargo.toml
-│   └── chat-node/          # Node binary (future use)
+│   └── chat-tui/           # Terminal UI application
+│       ├── src/
+│       │   ├── main.rs     # Application entry point
+│       │   └── app.rs      # Application state management
+│       └── Cargo.toml
 ├── Cargo.toml              # Workspace configuration
 └── README.md
 ```
@@ -186,12 +155,6 @@ Enable detailed logging with:
 RUST_LOG=debug ./target/release/chat-tui
 ```
 
-## Security Considerations
-
-- **Noise Protocol**: All connections use authenticated encryption
-- **Peer Authentication**: Ed25519 signatures verify peer identities  
-- **Network Isolation**: DHT provides natural network segmentation
-- **Bootstrap Trust**: Bootstrap nodes are trusted entry points to the network
 
 ## Contributing
 
@@ -201,9 +164,7 @@ RUST_LOG=debug ./target/release/chat-tui
 4. Add tests if applicable
 5. Submit a pull request
 
-## License
 
-This project is licensed under the MIT OR Apache-2.0 license.
 
 ## Future Enhancements
 

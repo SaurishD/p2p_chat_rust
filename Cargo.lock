@@ -401,27 +401,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "chat-node"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chat-core",
- "clap",
- "libp2p",
- "tokio",
- "tracing",
- "tracing-subscriber",
-]
-
-[[package]]
 name = "chat-tui"
 version = "0.1.0"
 dependencies = [
  "anyhow",
  "chat-core",
  "clap",
- "futures",
- "libp2p",
  "tokio",
  "tracing",
  "tracing-subscriber",

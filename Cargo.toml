@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "crates/chat-core",
-    "crates/chat-node", 
     "crates/chat-tui"
 ]
 resolver = "2"
