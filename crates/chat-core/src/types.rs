@@ -10,6 +10,16 @@ pub struct ChatMessage {
     pub sender: String,
     pub content: String,
     pub timestamp: u64,
+    pub message_type: MessageType,
+}
+
+/// Types of messages
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum MessageType {
+    /// Broadcast to all peers in the network
+    Broadcast,
+    /// Direct message to specific peer
+    Direct { target_peer_id: String },
 }
 
 /// User information
@@ -57,4 +67,5 @@ pub enum NetworkEvent {
     PeerDisconnected(String),
     MessageReceived(ChatMessage),
     DhtBootstrapped,
+    PeerListUpdated(Vec<PeerInfo>),
 }

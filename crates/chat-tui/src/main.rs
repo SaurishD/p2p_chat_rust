@@ -1,8 +1,8 @@
 mod app;
 
 use anyhow::Result;
-use app::{run_network_task, ChatApp};
-use chat_core::{init_with_dht, NetworkConfig};
+use app::{handle_network_events, ChatApp};
+use chat_core::{start_chat_client, NetworkConfig};
 use clap::Parser;
 use tracing::{info, warn};
 
@@ -56,38 +56,32 @@ async fn main() -> Result<()> {
         }
     }
     
-    // Initialize network with DHT
-    let (network, event_receiver) = init_with_dht(config).await?;
-    
-    // Subscribe to chat messages
-    // Note: We need to handle this in the network task since network is moved
+    // Start chat client with DHT
+    let (client, event_receiver) = start_chat_client(config, args.username.clone()).await?;
     
     println!("🚀 P2P Chat started!");
     println!("Username: {}", args.username);
     println!("Connecting to DHT and discovering peers...");
-    println!("Type your messages and press Enter to send.");
-    println!("Type 'quit' to exit.\n");
+    println!();
+    println!("📖 Commands:");
+    println!("  • Type messages to broadcast to all peers");
+    println!("  • /peers or /list - Show connected peers");
+    println!("  • /dm <peer_id> <message> - Send direct message");
+    println!("  • quit or exit - Exit the chat");
+    println!();
     
     // Create chat app
-    let (app, command_receiver) = ChatApp::new(args.username.clone());
+    let app = ChatApp::new(client);
     
-    // Start network task
-    let network_handle = tokio::spawn(run_network_task(
-        network,
-        event_receiver,
-        command_receiver,
-        args.username.clone(),
-    ));
+    // Start network event handler
+    let event_handle = tokio::spawn(handle_network_events(event_receiver));
     
     // Handle user input
     println!("Chat is ready! Start typing messages:");
     let _ = app.handle_user_input().await;
     
-    // Wait a bit for cleanup
-    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-    
-    // Cancel network task
-    network_handle.abort();
+    // Cancel event handler
+    event_handle.abort();
     
     println!("Goodbye!");
     Ok(())

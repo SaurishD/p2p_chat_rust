@@ -397,6 +397,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -419,6 +420,8 @@ dependencies = [
  "anyhow",
  "chat-core",
  "clap",
+ "futures",
+ "libp2p",
  "tokio",
  "tracing",
  "tracing-subscriber",

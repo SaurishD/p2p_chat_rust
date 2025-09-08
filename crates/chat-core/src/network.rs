@@ -14,7 +14,7 @@ use libp2p::{
 use std::fs;
 use std::path::Path;
 use std::{
-    collections::hash_map::DefaultHasher,
+    collections::{hash_map::DefaultHasher, HashMap},
     hash::{Hash, Hasher},
     time::Duration,
 };
@@ -86,6 +86,7 @@ impl From<PingEvent> for ChatBehaviourEvent {
 pub struct P2pNetwork {
     pub swarm: Swarm<ChatBehaviour>,
     pub event_sender: mpsc::UnboundedSender<NetworkEvent>,
+    pub connected_peers: HashMap<PeerId, PeerInfo>,
 }
 
 impl P2pNetwork {
@@ -193,9 +194,61 @@ impl P2pNetwork {
         let network = P2pNetwork {
             swarm,
             event_sender,
+            connected_peers: HashMap::new(),
         };
 
         Ok((network, event_receiver))
+    }
+
+    /// Handle a single swarm event
+    pub async fn handle_swarm_event(&mut self, event: SwarmEvent<ChatBehaviourEvent>) {
+        match event {
+            SwarmEvent::NewListenAddr { address, .. } => {
+                info!("Listening on {address}");
+            }
+            SwarmEvent::Behaviour(event) => {
+                self.handle_behaviour_event(event).await;
+            }
+            SwarmEvent::ConnectionEstablished { peer_id, .. } => {
+                info!("Connected to peer: {peer_id}");
+                
+                // Add to connected peers if we have info about them
+                if let Some(_peer_info) = self.connected_peers.get(&peer_id) {
+                    let _ = self.event_sender.send(NetworkEvent::PeerConnected(peer_id.to_string()));
+                } else {
+                    // Create basic peer info for now
+                    let peer_info = PeerInfo {
+                        peer_id: peer_id.to_string(),
+                        addresses: vec![],
+                        last_seen: std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs(),
+                    };
+                    self.connected_peers.insert(peer_id, peer_info);
+                    let _ = self.event_sender.send(NetworkEvent::PeerConnected(peer_id.to_string()));
+                }
+            }
+            SwarmEvent::ConnectionClosed { peer_id, .. } => {
+                info!("Disconnected from peer: {peer_id}");
+                self.connected_peers.remove(&peer_id);
+                let _ = self.event_sender.send(NetworkEvent::PeerDisconnected(peer_id.to_string()));
+            }
+            SwarmEvent::IncomingConnection { .. } => {
+                debug!("Incoming connection");
+            }
+            SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
+                if let Some(peer_id) = peer_id {
+                    warn!("Outgoing connection error to {peer_id}: {error}");
+                } else {
+                    warn!("Outgoing connection error: {error}");
+                }
+            }
+            SwarmEvent::IncomingConnectionError { error, .. } => {
+                warn!("Incoming connection error: {error}");
+            }
+            _ => {}
+        }
     }
 
     /// Start the network event loop
@@ -208,36 +261,8 @@ impl P2pNetwork {
         }
 
         loop {
-            match self.swarm.select_next_some().await {
-                SwarmEvent::NewListenAddr { address, .. } => {
-                    info!("Listening on {address}");
-                }
-                SwarmEvent::Behaviour(event) => {
-                    self.handle_behaviour_event(event).await;
-                }
-                SwarmEvent::ConnectionEstablished { peer_id, .. } => {
-                    info!("Connected to peer: {peer_id}");
-                    let _ = self.event_sender.send(NetworkEvent::PeerConnected(peer_id.to_string()));
-                }
-                SwarmEvent::ConnectionClosed { peer_id, .. } => {
-                    info!("Disconnected from peer: {peer_id}");
-                    let _ = self.event_sender.send(NetworkEvent::PeerDisconnected(peer_id.to_string()));
-                }
-                SwarmEvent::IncomingConnection { .. } => {
-                    debug!("Incoming connection");
-                }
-                SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
-                    if let Some(peer_id) = peer_id {
-                        warn!("Outgoing connection error to {peer_id}: {error}");
-                    } else {
-                        warn!("Outgoing connection error: {error}");
-                    }
-                }
-                SwarmEvent::IncomingConnectionError { error, .. } => {
-                    warn!("Incoming connection error: {error}");
-                }
-                _ => {}
-            }
+            let event = self.swarm.select_next_some().await;
+            self.handle_swarm_event(event).await;
         }
     }
 
@@ -275,7 +300,7 @@ impl P2pNetwork {
                     debug!("Added address for {peer_id}: {addr}");
                 }
 
-                // Send peer discovered event
+                // Send peer discovered event and store peer info
                 let peer_info = PeerInfo {
                     peer_id: peer_id.to_string(),
                     addresses,
@@ -284,6 +309,9 @@ impl P2pNetwork {
                         .unwrap_or_default()
                         .as_secs(),
                 };
+                
+                // Store peer info for later use
+                self.connected_peers.insert(peer_id, peer_info.clone());
                 let _ = self.event_sender.send(NetworkEvent::PeerDiscovered(peer_info));
             }
 
@@ -324,29 +352,61 @@ impl P2pNetwork {
 
     /// Publish a chat message
     pub fn publish_message(&mut self, message: &ChatMessage) -> Result<()> {
-        let topic = gossipsub::IdentTopic::new("chat");
-        let data = serde_json::to_vec(message)?;
-        
-        if let Err(e) = self.swarm.behaviour_mut().gossipsub.publish(topic, data) {
-            warn!("Failed to publish message: {e}");
-            return Err(anyhow::anyhow!("Failed to publish message: {e}"));
+        match &message.message_type {
+            MessageType::Broadcast => {
+                // Send to all peers via gossipsub
+                let topic = gossipsub::IdentTopic::new("chat");
+                let data = serde_json::to_vec(message)?;
+                
+                if let Err(e) = self.swarm.behaviour_mut().gossipsub.publish(topic, data) {
+                    warn!("Failed to publish broadcast message: {e}");
+                    return Err(anyhow::anyhow!("Failed to publish broadcast message: {e}"));
+                }
+                
+                info!("Published broadcast message: {}", message.content);
+            }
+            MessageType::Direct { target_peer_id } => {
+                // For direct messages, we'll use gossipsub with a specific topic for now
+                // In a production system, you might want to use request-response protocol
+                let topic = gossipsub::IdentTopic::new(&format!("direct-{}", target_peer_id));
+                let data = serde_json::to_vec(message)?;
+                
+                if let Err(e) = self.swarm.behaviour_mut().gossipsub.publish(topic, data) {
+                    warn!("Failed to publish direct message: {e}");
+                    return Err(anyhow::anyhow!("Failed to publish direct message: {e}"));
+                }
+                
+                info!("Published direct message to {}: {}", target_peer_id, message.content);
+            }
         }
         
-        info!("Published message: {}", message.content);
         Ok(())
     }
 
     /// Subscribe to chat messages
     pub fn subscribe_to_chat(&mut self) -> Result<()> {
+        // Subscribe to general chat topic for broadcasts
         let topic = gossipsub::IdentTopic::new("chat");
         self.swarm.behaviour_mut().gossipsub.subscribe(&topic)?;
         info!("Subscribed to chat topic");
-        Ok(())
+        
+        // Subscribe to direct messages for this peer
+        let local_peer_id = *self.swarm.local_peer_id();
+        let direct_topic = gossipsub::IdentTopic::new(&format!("direct-{}", local_peer_id));
+        self.swarm.behaviour_mut().gossipsub.subscribe(&direct_topic)?;
+        info!("Subscribed to direct message topic: direct-{}", local_peer_id);
+        
+    Ok(())
     }
 
     /// Get connected peers
     pub fn connected_peers(&self) -> Vec<PeerId> {
         self.swarm.connected_peers().cloned().collect()
+    }
+    
+    /// Get peer list with information
+    pub fn get_peer_list(&self) -> Vec<PeerInfo> {
+        self.connected_peers.values().cloned().collect()
     }
 
     /// Start peer discovery in DHT
